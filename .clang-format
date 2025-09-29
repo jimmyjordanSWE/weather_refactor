@@ -1,0 +1,7 @@
+BasedOnStyle: Google
+BreakBeforeBraces: Attach
+IndentWidth: 4
+ColumnLimit: 999
+PointerAlignment: Left
+BreakBeforeBinaryOperators: None
+IncludeBlocks: Merge

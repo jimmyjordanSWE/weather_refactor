@@ -1,0 +1,17 @@
+#ifndef DEFINES_H
+#define DEFINES_H
+
+#define TRUE 1
+#define FALSE 0
+
+#define MAX_CITY_NAME 128
+
+#define MAX_RESPONSE_BUFFER_LENGTH 16384
+#define MAX_OUTPUT_BUFFER_LENGTH MAX_RESPONSE_BUFFER_LENGTH
+#define MAX_URL_LENGTH 4096
+
+#define APP_EXIT 1
+
+#define LOCATIONS_FILE_PATH "./data/locations.json"
+
+#endif /* DEFINES_H */

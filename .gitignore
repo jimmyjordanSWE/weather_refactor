@@ -1,0 +1,14 @@
+# Compiled binaries and object files
+build/
+
+# IDE files
+.vscode/
+
+# Package files
+*.o
+*.d
+*.exe
+*.out
+
+# Specific files to ignore
+notes.md
