@@ -115,7 +115,6 @@ int load_locations(weather_app **_app) {
         if (val != NULL && json_is_array(val)) {
             json_array_foreach(val, index, loc) {
                 /* same code as above but we load from a string on the stack */
-
                 name = json_object_get(loc, "name");
                 latitude = json_object_get(loc, "latitude");
                 longitude = json_object_get(loc, "longitude");

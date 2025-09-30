@@ -7,8 +7,7 @@
 
 /* TODO UNTIL FINISHED:
 - Write API responses to file
-- Finish print menu function, how to best access internal city list?
-- add "dumb" cool down to API calls, 1 second or something
+- check cache before calling API
 - add smart cool down to API calls, data refreshed
     every 00,15,30,45 minutes. Check how far away we are.
 
