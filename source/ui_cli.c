@@ -20,12 +20,12 @@ void ui_print_response_raw(weather_app *_app) {
 }
 
 void ui_print_menu(weather_app *_app) {
-    int i = 0;
-    size_t nr_loc = app_get_nr_locations(_app);
-
-    for (; i < nr_loc; i++) {
-        printf("[%d] %s", i + 1, app_get_location_name(_app, i));
-    }
+    /*  int i = 0;
+     size_t nr_loc = app_get_nr_locations(_app);
+  */
+    /*     for (; i < nr_loc; i++) {
+            printf("[%d] %s", i + 1, app_get_location_name(_app, i));
+        } */
 }
 
 int ui_get_selection(int max) {

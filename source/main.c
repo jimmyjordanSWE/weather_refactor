@@ -6,10 +6,22 @@
 #include "weather_app.h"
 #include "wrap_curl.h"
 
-/* todo temporary globals */
+/* TODO UNTIL FINISHED:
+- add hard coded locations for bootstap
+- Write API responses to file
+- Finish print menu function, how to best access internal city list?
+- add "dumb" cool down to API calls, 1 second or something
+- add smart cool down to API calls, data refreshed
+    every 00,15,30,45 minutes. Check how far away we are.
+
+- bonus: perhaps integrate w_curl into weather_app?
+*/
+
+/* todo temporary globals. Create some kind of URL handler code */
 char* meteo_url = "https://api.open-meteo.com/v1/forecast?latitude=59.3293&longitude=18.0686&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,rain,showers,snowfall,weather_code,cloud_cover,pressure_msl,surface_pressure,wind_speed_10m,wind_direction_10m,wind_gusts_10m";
 
 int main() {
+    /* inits and setup */
     weather_app* app = NULL;
     if (app_init(&app) != 0) {
         return -1;
@@ -23,18 +35,23 @@ int main() {
 
     ui_print_startup_message();
 
+    /* Main program loop */
     do {
         ui_print_menu(app);
 
-        if (ui_get_selection(app_get_nr_locations(app)) == 0) {
+        if (ui_get_selection(16) == 0) {
+            /* robin: better to use a app_quit() function */
             app_send_message(app, APP_EXIT);
             break;
         }
 
         w_curl_perform(app, w_curl);
+
         printf("Temp: %.1f°C | Humidity: %d%% | Wind: %.1f km/h @ %d°\n", app_get_temp(app), app_get_humidity(app), app_get_wind_speed(app), app_get_wind_direction(app));
+
     } while (app_get_exit(app) == 0);
 
+    /* cleanup and exit */
     w_curl_handle_destroy(&w_curl);
     w_curl_global_cleanup();
     app_destroy(&app);

@@ -13,7 +13,8 @@ int app_send_message(weather_app *_app, int _message);
 
 /* getters */
 char *app_get_location_name(weather_app *_app, int index);
-size_t app_get_nr_locations(weather_app *_app);
+/* size_t app_get_nr_locations(weather_app *_app);
+ */
 int app_get_exit(weather_app *_app);
 char *app_get_prev_api_response_raw(weather_app *_app);
 
