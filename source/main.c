@@ -2,7 +2,6 @@
 #include <stdio.h>
 #include <unistd.h>
 #include "defines.h"
-#include "ui_cli.h"
 #include "weather_app.h"
 #include "wrap_curl.h"
 
@@ -33,15 +32,13 @@ int main() {
     }
     w_curl_set_url(w_curl, meteo_url);
 
-    ui_print_startup_message();
-
+    app_print_startup_message();
     /* Main program loop */
     do {
-        ui_print_menu(app);
+        app_print_menu(app);
 
-        if (ui_get_selection(16) == 0) {
-            /* robin: better to use a app_quit() function */
-            app_send_message(app, APP_EXIT);
+        if (app_get_selection(app_get_nr_locations(app)) == 0) {
+            app_set_exit(app);
             break;
         }
 

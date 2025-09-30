@@ -41,4 +41,7 @@ void LinkedList_clear(LinkedList *list, void free_function(void *));
                  as we cannot ensure it's safe */
 void LinkedList_dispose(LinkedList *list, void free_function(void *));
 
+/* frees everything */
+void LinkedList_free_nodes_and_payloads(LinkedList *list);
+
 #endif

@@ -3,9 +3,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/types.h>
 #include "defines.h"
 #include "jansson.h"
 #include "linked_list.h"
+#include "stddef.h"
+#include "weather_app.h"
 
 /* ↓↓↓ INTERNAL ↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓ */
 typedef struct {
@@ -61,46 +64,74 @@ void app_reset_output_buffer(weather_app *_app) {
  * INITIALIZATION & CLEANUP
  * ======================================== */
 int load_locations(weather_app **_app) {
-    json_t *root;
+    size_t index;
+    json_t *val = NULL;
+    json_t *loc = NULL;
+    json_t *name = NULL;
+    json_t *latitude = NULL;
+    json_t *longitude = NULL;
+    json_t *root = NULL;
     json_error_t error;
+    int error_parsing_file_data = 0;
 
     root = json_load_file(LOCATIONS_FILE_PATH, 0, &error);
 
-    if (!root) {
-        fprintf(stderr,
-                "JSON error in file %s:\n"
-                "  line %d: %s\n",
-                LOCATIONS_FILE_PATH, error.line, error.text);
-        return -1;
-    }
+    /* File found and read. Try to load from file */
+    if (root != NULL) {
+        val = json_object_get(root, "locations");
 
-    json_t *val;
-    val = json_object_get(root, "locations");
+        if (val != NULL && json_is_array(val)) {
+            json_array_foreach(val, index, loc) {
+                name = json_object_get(loc, "name");
+                latitude = json_object_get(loc, "latitude");
+                longitude = json_object_get(loc, "longitude");
 
-    size_t index;
-    json_t *loc;
+                if (json_is_string(name) && json_is_number(latitude) && json_is_number(longitude)) {
+                    location *tmp = (location *)calloc(1, sizeof(location));
 
-    json_array_foreach(val, index, loc) {
-        json_t *name = json_object_get(loc, "name");
-        json_t *latitude = json_object_get(loc, "latitude");
-        json_t *longitude = json_object_get(loc, "longitude");
+                    strncpy(tmp->city_name, json_string_value(name), MAX_CITY_NAME - 1);
+                    tmp->latitude = json_number_value(latitude);
+                    tmp->longitude = json_number_value(longitude);
 
-        if (json_is_string(name) && json_is_number(latitude) && json_is_number(longitude)) {
-            location *tmp = (location *)calloc(1, sizeof(location));
+                    LinkedList_append((*_app)->locations, (void *)tmp);
 
-            strncpy(tmp->city_name, json_string_value(name), MAX_CITY_NAME);
-            tmp->latitude = json_number_value(latitude);
-            tmp->longitude = json_number_value(longitude);
-            json_number_value(latitude);
-            /*  todo continue here */
-            LinkedList_append((*_app)->locations, (void *)tmp);
-
-        } else {
-            fprintf(stderr, "Invalid data at index %zu\n", index);
+                } else {
+                    fprintf(stderr, "Invalid data at index %zu. Loading hard coded locations instead.\n", index);
+                    error_parsing_file_data = 1;
+                    /* clean up and stop parsing on any error */
+                    json_decref(root);
+                    root = NULL;
+                    LinkedList_free_nodes_and_payloads((*_app)->locations);
+                    break;
+                }
+            }
         }
-        /* todo finsih liked list so we can fil lthis data  */
     }
 
+    /* file not found or there where errors reading file, load from hard coded locations */
+    if (root == NULL || error_parsing_file_data != 0) {
+        root = json_loads(HARD_CODED_LOCATIONS, 0, &error);
+        val = json_object_get(root, "locations");
+        if (val != NULL && json_is_array(val)) {
+            json_array_foreach(val, index, loc) {
+                /* same code as above but we load from a string on the stack */
+
+                name = json_object_get(loc, "name");
+                latitude = json_object_get(loc, "latitude");
+                longitude = json_object_get(loc, "longitude");
+
+                location *tmp = (location *)calloc(1, sizeof(location));
+
+                strncpy(tmp->city_name, json_string_value(name), MAX_CITY_NAME - 1);
+                tmp->latitude = json_number_value(latitude);
+                tmp->longitude = json_number_value(longitude);
+
+                LinkedList_append((*_app)->locations, (void *)tmp);
+            }
+        }
+    }
+    json_decref(root);
+    root = NULL;
     return 0;
 }
 
@@ -142,7 +173,7 @@ int app_destroy(weather_app **_app) {
         return -1;
     }
 
-    /* todo decref all jansson here */
+    /* todo decref all jansson here? */
     free((*_app)->output_buffer);
     free((*_app)->api_response);
     free(*_app);
@@ -153,7 +184,12 @@ int app_destroy(weather_app **_app) {
 /* ========================================
  * GETTERS
  * ======================================== */
-
+size_t app_get_nr_locations(weather_app *_app) {
+    if (_app == NULL) {
+        return -1;
+    }
+    return _app->locations->size;
+}
 int app_get_exit(weather_app *_app) {
     if (_app == NULL) {
         return -1;
@@ -214,6 +250,14 @@ const char *app_get_city_name(weather_app *_app) {
 /* ========================================
  * SETTERS
  * ======================================== */
+
+int app_set_exit(weather_app *_app) {
+    if (_app == NULL) {
+        return -1;
+    }
+    _app->exit = 1;
+    return 0;
+}
 int app_set_prev_api_response(weather_app *_app, char *_response) {
     if (_app->api_response == NULL || _response == NULL) {
         return -1;
@@ -283,14 +327,46 @@ int app_set_prev_api_response(weather_app *_app, char *_response) {
     return 0;
 }
 
-int app_send_message(weather_app *_app, int _message_code) {
-    switch (_message_code) {
-        case APP_EXIT:
-            _app->exit = TRUE;
-            break;
+/* UI */
+void app_print_startup_message() {
+    printf("\n");
+    printf("    ╔═════════════════════════╗\n");
+    printf("    ║       CIRRUS  CLI       ║\n");
+    printf("    ╚═════════════════════════╝\n");
+    printf("\n");
+}
 
-        default:
+void app_print_menu(weather_app *_app) {
+    for (size_t i = 0; i < _app->locations->size; i++) {
+        printf("%3zu: %s\n", i + 1, ((location *)LinkedList_get_index(_app->locations, i)->item)->city_name);
     }
+    printf("  0: EXIT\n");
+    return;
+}
 
-    return 0;
+int app_get_selection(int max) {
+    int min = 0;
+    size_t length = 0;
+    long read_value = 0.0f;
+    char *line = NULL;
+    char *end_pointer = NULL;
+
+    while (1) {
+        printf("Select an option (%d-%d): ", min + 1, max);
+
+        if ((ssize_t)getline(&line, &length, stdin) == -1) {
+            free(line);
+            return 0; /* todo only works because 0 is quit in main() */
+        }
+
+        line[strcspn(line, "\n")] = '\0';
+        read_value = strtol(line, &end_pointer, 10);
+
+        if (end_pointer == line || read_value < min || read_value > max) {
+            continue;
+        }
+
+        free(line); /* getline() mallocs */
+        return (int)read_value;
+    }
 }
