@@ -62,11 +62,15 @@ int w_curl_perform(weather_app *_app, wrap_curl *_w_curl) {
 
     _w_curl->error = curl_easy_perform(_w_curl->handle);
     _w_curl->call_cooldown = time(NULL);
+    _w_curl->response_storage[MAX_OUTPUT_BUFFER_LENGTH - 1] = '\0';
 
     if (_w_curl->error != CURLE_OK) {
         fprintf(stderr, "Error: curl_perform(). CURLcode: %s\n", curl_easy_strerror(_w_curl->error));
         return 1;
     }
+
+    /* write api response to locations instead */
+    app_set_current_location_weather(_app, _w_curl->response_storage);
 
     if (app_set_prev_api_response(_app, _w_curl->response_storage) != 0) {
         fprintf(stderr, "Error: curl_perform(). could not write response to _app->prev-api_response");
@@ -74,6 +78,7 @@ int w_curl_perform(weather_app *_app, wrap_curl *_w_curl) {
     }
 
     /* write response to file */
+    app_cache_api_response(_app);
 
     return 0;
 }

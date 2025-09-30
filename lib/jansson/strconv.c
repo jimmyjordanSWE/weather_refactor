@@ -1,10 +1,10 @@
-#include "jansson_private.h"
-#include "strbuffer.h"
 #include <assert.h>
 #include <errno.h>
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
+#include "jansson_private.h"
+#include "strbuffer.h"
 
 /* need jansson_private_config.h to get the correct snprintf */
 #ifdef HAVE_CONFIG_H
@@ -23,7 +23,7 @@
 */
 static char get_decimal_point() {
     char buf[3];
-    sprintf(buf, "%#.0f", 1.0); // "1." in the current locale
+    sprintf(buf, "%#.0f", 1.0);  // "1." in the current locale
     return buf[1];
 }
 
@@ -38,8 +38,7 @@ static void to_locale(strbuffer_t *strbuffer) {
     }
 
     pos = strchr(strbuffer->value, '.');
-    if (pos)
-        *pos = point;
+    if (pos) *pos = point;
 }
 
 int jsonp_strtod(strbuffer_t *strbuffer, double *out) {
@@ -63,8 +62,7 @@ int jsonp_strtod(strbuffer_t *strbuffer, double *out) {
 
 #if DTOA_ENABLED
 /* see dtoa.c */
-char *dtoa_r(double dd, int mode, int ndigits, int *decpt, int *sign, char **rve,
-             char *buf, size_t blen);
+char *dtoa_r(double dd, int mode, int ndigits, int *decpt, int *sign, char **rve, char *buf, size_t blen);
 
 int jsonp_dtostr(char *buffer, size_t size, double value, int precision) {
     /* adapted from `format_float_short()` in
@@ -132,13 +130,13 @@ int jsonp_dtostr(char *buffer, size_t size, double value, int precision) {
 
     /* Digits, with included decimal point */
     if (0 < decpt && decpt <= digits_len) {
-        strncpy(p, digits, decpt - 0);
+        strlcpy(p, digits, decpt - 0);
         p += decpt - 0;
         *p++ = '.';
-        strncpy(p, digits + decpt, digits_len - decpt);
+        strlcpy(p, digits + decpt, digits_len - decpt);
         p += digits_len - decpt;
     } else {
-        strncpy(p, digits, digits_len);
+        strlcpy(p, digits, digits_len);
         p += digits_len;
     }
 
@@ -154,8 +152,7 @@ int jsonp_dtostr(char *buffer, size_t size, double value, int precision) {
         p += vdigits_end - digits_len;
     }
 
-    if (p[-1] == '.')
-        p--;
+    if (p[-1] == '.') p--;
 
     if (use_exp) {
         *p++ = 'e';
@@ -178,8 +175,7 @@ static void from_locale(char *buffer) {
     }
 
     pos = strchr(buffer, point);
-    if (pos)
-        *pos = '.';
+    if (pos) *pos = '.';
 }
 
 int jsonp_dtostr(char *buffer, size_t size, double value, int precision) {
@@ -187,16 +183,13 @@ int jsonp_dtostr(char *buffer, size_t size, double value, int precision) {
     char *start, *end;
     size_t length;
 
-    if (precision == 0)
-        precision = 17;
+    if (precision == 0) precision = 17;
 
     ret = snprintf(buffer, size, "%.*g", precision, value);
-    if (ret < 0)
-        return -1;
+    if (ret < 0) return -1;
 
     length = (size_t)ret;
-    if (length >= size)
-        return -1;
+    if (length >= size) return -1;
 
     from_locale(buffer);
 
@@ -220,11 +213,9 @@ int jsonp_dtostr(char *buffer, size_t size, double value, int precision) {
         start++;
         end = start + 1;
 
-        if (*start == '-')
-            start++;
+        if (*start == '-') start++;
 
-        while (*end == '0')
-            end++;
+        while (*end == '0') end++;
 
         if (end != start) {
             memmove(start, end, length - (size_t)(end - buffer));
