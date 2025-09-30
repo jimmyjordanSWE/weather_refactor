@@ -4,6 +4,8 @@
 #define TRUE 1
 #define FALSE 0
 
+#define SECONDS_BETWEEN_CALLS 3
+
 #define MAX_CITY_NAME 128
 
 #define MAX_RESPONSE_BUFFER_LENGTH 16384

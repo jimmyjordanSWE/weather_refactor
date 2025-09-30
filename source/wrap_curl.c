@@ -2,6 +2,8 @@
 #include <curl/curl.h>
 #include <malloc.h>
 #include <string.h>
+#include <time.h>
+#include <unistd.h>
 #include "defines.h"
 #include "weather_app.h"
 
@@ -11,6 +13,7 @@ static int curl_global_init_has_been_run = 0;
 struct wrap_curl {
     CURL *handle;
     CURLcode error;
+    time_t call_cooldown;
     char *response_storage;
     char *url;
 
@@ -18,6 +21,7 @@ struct wrap_curl {
 };
 /* reset all for handle reuse */
 int w_curl_reset_handle(wrap_curl *_w_curl) {
+    _w_curl->call_cooldown = 0;
     _w_curl->error = CURLE_OK;
     memset(_w_curl->response_storage, 0, MAX_RESPONSE_BUFFER_LENGTH);
     /* todo check if this segfaults at second run (first is during init)*/
@@ -50,7 +54,14 @@ int w_curl_perform(weather_app *_app, wrap_curl *_w_curl) {
     }
 
     w_curl_reload_handle(_w_curl);
+
+    if (time(NULL) - _w_curl->call_cooldown < SECONDS_BETWEEN_CALLS) {
+        printf("Cooldown active. Waiting for %d seconds...\n", SECONDS_BETWEEN_CALLS);
+        sleep(time(NULL) - _w_curl->call_cooldown + 1);
+    }
+
     _w_curl->error = curl_easy_perform(_w_curl->handle);
+    _w_curl->call_cooldown = time(NULL);
 
     if (_w_curl->error != CURLE_OK) {
         fprintf(stderr, "Error: curl_perform(). CURLcode: %s\n", curl_easy_strerror(_w_curl->error));
@@ -62,7 +73,8 @@ int w_curl_perform(weather_app *_app, wrap_curl *_w_curl) {
         return 1;
     }
 
-    /* write to chache / disk */
+    /* write response to file */
+
     return 0;
 }
 

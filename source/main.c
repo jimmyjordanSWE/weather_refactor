@@ -6,7 +6,6 @@
 #include "wrap_curl.h"
 
 /* TODO UNTIL FINISHED:
-- add hard coded locations for bootstap
 - Write API responses to file
 - Finish print menu function, how to best access internal city list?
 - add "dumb" cool down to API calls, 1 second or something
