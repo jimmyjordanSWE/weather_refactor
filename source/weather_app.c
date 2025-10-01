@@ -39,7 +39,7 @@ typedef struct location {
     char name[MAX_CITY_NAME];
     double latitude;
     double longitude;
-    time_t timestamp_api_call;
+    time_t timestamp_last_api_call;
     weather_data current_weather;
 } location;
 
@@ -139,7 +139,7 @@ int app_load_locations(weather_app **_app) {
                 LinkedList_append((*_app)->locations, (void *)tmp);
             }
             fprintf(stderr, "\n\"%s\" not found.\n%zu hard coded locations loaded.\n", LOCATIONS_FILE_PATH, (*_app)->locations->size);
-            fprintf(stderr, "\"%s\" was created.\n", LOCATIONS_FILE_PATH);
+            fprintf(stderr, "\"%s\" was created.\n\n", LOCATIONS_FILE_PATH);
             app_write_locations_to_file(*_app);
         }
     }
@@ -255,7 +255,7 @@ const char *app_get_name(weather_app *_app) {
  * SETTERS
  * ======================================== */
 void app_set_current_location_weather(weather_app *_app, char *_api_response) {
-    _app->current_location->timestamp_api_call = time(NULL);
+    _app->current_location->timestamp_last_api_call = time(NULL);
     /* check if long and lat line up so its the right location */
 
     json_error_t error;
@@ -429,7 +429,7 @@ int app_write_locations_to_file(weather_app *_app) {
         json_object_set_new(location, "name", json_string(current_location->name));
         json_object_set_new(location, "latitude", json_real(current_location->latitude));
         json_object_set_new(location, "longitude", json_real(current_location->longitude));
-        json_object_set_new(location, "timestamp_api_call", json_integer(current_location->timestamp_api_call));
+        json_object_set_new(location, "timestamp_last_api_call", json_integer(current_location->timestamp_last_api_call));
 
         /* add weather_data to location */
         json_object_set_new(location, "current_weather", current_weather_obj);
