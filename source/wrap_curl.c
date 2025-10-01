@@ -54,16 +54,22 @@ int w_curl_perform(weather_app *_app, wrap_curl *_w_curl) {
 
     w_curl_reload_handle(_w_curl);
 
+    snprintf(_w_curl->url, MAX_URL_LENGTH, URL_TEMPLATE_METEO, app_get_current_location_latitude(_app), app_get_current_location_longitude(_app));
+
+    w_curl_set_url(_w_curl);
+
+    /* dont call if there is no new data released */
+    size_t seconds_left = app_is_cache_stale(_app);
+    if (seconds_left != 0) {
+        printf("No API call sent, %02zum%02zus left until new data is released", seconds_left / 60, seconds_left % 60);
+        return 0;
+    }
+
+    /* dont call more often than allowed */
     if (time(NULL) - _w_curl->call_cooldown < SECONDS_BETWEEN_CALLS) {
         printf("Cooldown active. Waiting for %d seconds...\n", SECONDS_BETWEEN_CALLS);
         sleep(time(NULL) - _w_curl->call_cooldown + 1);
     }
-
-    /* todo get time of current locations last API call */
-    /* if a 15 minute boundary have not been passed, return */
-    if (time(NULL) % 900) {
-    }
-
     _w_curl->error = curl_easy_perform(_w_curl->handle);
     _w_curl->call_cooldown = time(NULL);
 
@@ -116,9 +122,8 @@ int w_curl_init(wrap_curl **_w_curl) {
     return 0;
 }
 
-int w_curl_set_url(wrap_curl *_w_curl, char *_url) {
-    _w_curl->url = _url;
-    _w_curl->error = curl_easy_setopt(_w_curl->handle, CURLOPT_URL, _url);
+int w_curl_set_url(wrap_curl *_w_curl) {
+    _w_curl->error = curl_easy_setopt(_w_curl->handle, CURLOPT_URL, _w_curl->url);
     if (_w_curl->error == CURLE_OK) {
         return 0;
     }

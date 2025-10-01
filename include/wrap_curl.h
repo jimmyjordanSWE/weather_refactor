@@ -9,6 +9,6 @@ int w_curl_global_cleanup();
 int w_curl_handle_destroy(wrap_curl **_w_curl);
 
 int w_curl_perform(weather_app *_app, wrap_curl *_w_curl);
-int w_curl_set_url(wrap_curl *_w_curl, char *_url);
+int w_curl_set_url(wrap_curl *_w_curl);
 
 #endif /* CURL_WRAPPER */

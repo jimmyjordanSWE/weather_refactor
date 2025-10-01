@@ -8,20 +8,11 @@
 
 - make it so that we can add new cities
 
-- write a URL builder and remove hardcoded URL string from main
-
-- check cache before calling API
-
-- add smart cool down to API calls, data refreshed
-    every 00,15,30,45 minutes. Check how far away we are.
-
 - bonus: perhaps integrate w_curl into weather_app?
 */
 
-/* todo temporary globals. Create some kind of URL handler code */
-char* meteo_url = "https://api.open-meteo.com/v1/forecast?latitude=59.3293&longitude=18.0686&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,rain,showers,snowfall,weather_code,cloud_cover,pressure_msl,surface_pressure,wind_speed_10m,wind_direction_10m,wind_gusts_10m";
-
 int main() {
+    app_clear_screen();
     app_print_startup_message();
 
     /* inits and setup */
@@ -41,13 +32,14 @@ int main() {
         app_print_menu(app);
 
         selection = app_get_selection(app_get_nr_locations(app));
+        app_clear_screen();
         if (selection == 0) {
             app_set_exit(app);
             break;
         }
 
         app_set_current_location_index(app, selection);
-        w_curl_set_url(w_curl, meteo_url);
+        /*         w_curl_set_url(w_curl, meteo_url); */
         w_curl_perform(app, w_curl);
 
         app_print_current_location_weather_all(app);

@@ -12,7 +12,14 @@ int app_init(weather_app **_app);
 int app_destroy(weather_app **_app);
 
 /* getters */
+
+/* returns seconds left until next interval */
+size_t app_is_cache_stale(weather_app *_app);
+
 char *app_get_location_name(weather_app *_app, int index);
+double app_get_current_location_latitude(weather_app *_app);
+double app_get_current_location_longitude(weather_app *_app);
+
 size_t app_get_nr_locations(weather_app *_app);
 
 int app_get_exit(weather_app *_app);
@@ -37,6 +44,7 @@ int app_set_current_location(weather_app **_app, location *_new_location);
 void app_set_current_location_index(weather_app *_app, size_t _selection);
 
 /* UI */
+void app_clear_screen();
 void app_print_startup_message();
 void app_print_menu(weather_app *_app);
 void app_print_current_location_weather_all(weather_app *_app);

@@ -195,6 +195,20 @@ int app_destroy(weather_app **_app) {
 /* ========================================
  * GETTERS
  * ======================================== */
+
+size_t app_is_cache_stale(weather_app *_app) {
+    time_t now = time(NULL);
+    size_t prev_call = (size_t)_app->current_location->timestamp_last_api_call;
+    size_t interval = (size_t)_app->current_location->current_weather.interval;
+
+    if ((size_t)(now - prev_call) >= interval) return 0;
+
+    return interval - (size_t)(now - prev_call);
+}
+
+double app_get_current_location_latitude(weather_app *_app) { return _app->current_location->latitude; }
+double app_get_current_location_longitude(weather_app *_app) { return _app->current_location->longitude; }
+
 size_t app_get_nr_locations(weather_app *_app) {
     if (_app == NULL) {
         return -1;
@@ -321,6 +335,11 @@ int app_set_exit(weather_app *_app) {
 }
 
 /* UI */
+
+void app_clear_screen(void) {
+    printf("\033[2J\033[H");
+    fflush(stdout);
+}
 
 void app_print_startup_message() {
     printf("\n");
