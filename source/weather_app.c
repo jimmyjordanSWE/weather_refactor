@@ -317,7 +317,6 @@ void app_set_current_location_weather(weather_app *_app, char *_api_response) {
 
     return;
 }
-
 int app_set_exit(weather_app *_app) {
     if (_app == NULL) {
         return -1;
@@ -397,7 +396,6 @@ void app_print_startup_message() {
     printf("    ╚═════════════════════════╝\n");
     printf("\n");
 }
-
 void app_print_menu(weather_app *_app) {
     for (size_t i = 0; i < _app->locations->size; i++) {
         printf("%3zu: %s\n", i + 1, ((location *)LinkedList_get_index(_app->locations, i)->item)->city_name);
@@ -405,7 +403,6 @@ void app_print_menu(weather_app *_app) {
     printf("  0: EXIT\n");
     return;
 }
-
 int app_get_selection(int max) {
     int min = 0;
     size_t length = 0;
@@ -435,4 +432,14 @@ int app_get_selection(int max) {
 
 /* Files */
 /* todo finish this */
-void app_cache_api_response(weather_app *_app) { return; }
+void app_cache_api_response(weather_app *_app) {
+    /* locations is an array in json och linked list i structen */
+    /* stega igenom location listan och appenda json objekt.   */
+    /* dumpa det skapade json objektet till filen, skriv över gamla */
+
+    // create objects needed to build locations.json output file
+    json_t *output = json_object();
+    json_t *locations_array = json_array();
+
+    return;
+}

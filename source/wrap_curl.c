@@ -33,7 +33,6 @@ int w_curl_reset_handle(wrap_curl *_w_curl) {
 int w_curl_reload_handle(wrap_curl *_w_curl) {
     _w_curl->error = CURLE_OK;
     memset(_w_curl->response_storage, 0, MAX_RESPONSE_BUFFER_LENGTH);
-    /* segfault second time */
     return 0;
 }
 
@@ -58,6 +57,11 @@ int w_curl_perform(weather_app *_app, wrap_curl *_w_curl) {
     if (time(NULL) - _w_curl->call_cooldown < SECONDS_BETWEEN_CALLS) {
         printf("Cooldown active. Waiting for %d seconds...\n", SECONDS_BETWEEN_CALLS);
         sleep(time(NULL) - _w_curl->call_cooldown + 1);
+    }
+
+    /* todo get time of current locations last API call */
+    /* if a 15 minute boundary have not been passed, return */
+    if (time(NULL) % 900) {
     }
 
     _w_curl->error = curl_easy_perform(_w_curl->handle);

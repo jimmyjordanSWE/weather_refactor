@@ -1,13 +1,17 @@
 #include <stddef.h>
 #include <stdio.h>
 #include <unistd.h>
-#include "defines.h"
 #include "weather_app.h"
 #include "wrap_curl.h"
 
 /* TODO UNTIL FINISHED:
 - Write API responses to file
+
+- add tinyDir / make folder if cache file and folder is missing
+
+- write a URL builder and remove hardcoded URL string from main
 - check cache before calling API
+
 - add smart cool down to API calls, data refreshed
     every 00,15,30,45 minutes. Check how far away we are.
 
@@ -28,7 +32,6 @@ int main() {
     if (w_curl_init(&w_curl) != 0) {
         return -1;
     }
-    w_curl_set_url(w_curl, meteo_url);
 
     app_print_startup_message();
     /* Main program loop */
@@ -40,6 +43,7 @@ int main() {
             break;
         }
 
+        w_curl_set_url(w_curl, meteo_url);
         w_curl_perform(app, w_curl);
 
         printf("Temp: %.1f°C | Humidity: %d%% | Wind: %.1f km/h @ %d°\n", app_get_temp(app), app_get_humidity(app), app_get_wind_speed(app), app_get_wind_direction(app));
