@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 #include <sys/types.h>
 #include "defines.h"
 #include "jansson.h"
@@ -13,12 +14,12 @@
 
 /* ↓↓↓ INTERNAL ↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓ */
 typedef struct {
-    int utc_offset_seconds;
     char timezone[16];
-    int elevation;
     char time[32];
+    int utc_offset_seconds;
     int interval;
     int weather_code;
+    double elevation;
     double temperature_2m;
     double relative_humidity_2m;
     double cloud_cover;
@@ -45,20 +46,13 @@ typedef struct location {
 struct weather_app {
     location *current_location; /* points to any location in the locations list  */
     LinkedList *locations;
-
-    char *output_buffer; /* todo probably not needed anymore when we dont have a external UI module */
     char *api_response;
-
     json_t *root;
     json_error_t error;
 
     char exit;
 };
 
-void app_reset_output_buffer(weather_app *_app) {
-    memset(_app->output_buffer, 0, MAX_OUTPUT_BUFFER_LENGTH);
-    return;
-}
 /* ↑↑↑ INTERNAL ↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑ */
 
 /* ========================================
@@ -68,6 +62,12 @@ void app_reset_output_buffer(weather_app *_app) {
 int app_set_current_location(weather_app **_app, location *_new_location) {
     (*_app)->current_location = _new_location;
     return 0;
+}
+
+void app_set_current_location_index(weather_app *_app, size_t _selection) {
+    _selection--; /* index starts at 0, user menu at 1 */
+    _app->current_location = LinkedList_get_index(_app->locations, _selection)->item;
+    return;
 }
 
 int app_load_locations(weather_app **_app) {
@@ -112,11 +112,15 @@ int app_load_locations(weather_app **_app) {
                     break;
                 }
             }
+
+            fprintf(stderr, "%zu locations loaded from \"%s\"\n\n", (*_app)->locations->size, LOCATIONS_FILE_PATH);
         }
     }
 
     /* file not found or there where errors reading file, load from hard coded locations */
     if (root == NULL || error_parsing_file_data != 0) {
+        /* todo hard coded path, make defines */
+        mkdir(LOCATIONS_FILE_FOLDER, 0777);
         root = json_loads(HARD_CODED_LOCATIONS, 0, &error);
         val = json_object_get(root, "locations");
         if (val != NULL && json_is_array(val)) {
@@ -134,10 +138,14 @@ int app_load_locations(weather_app **_app) {
 
                 LinkedList_append((*_app)->locations, (void *)tmp);
             }
+            fprintf(stderr, "\n\"%s\" not found.\n%zu hard coded locations loaded.\n", LOCATIONS_FILE_PATH, (*_app)->locations->size);
+            fprintf(stderr, "\"%s\" was created.\n", LOCATIONS_FILE_PATH);
+            app_write_locations_to_file(*_app);
         }
     }
     json_decref(root);
     root = NULL;
+
     return 0;
 }
 
@@ -149,19 +157,16 @@ int app_init(weather_app **_app) {
     }
     /*  Setting to NULL is not just a precaution, we must do it
     so that cleanup wont try to free garbage in case any malloc here fails*/
-    (*_app)->output_buffer = NULL;
     (*_app)->api_response = NULL;
     (*_app)->exit = FALSE;
 
-    (*_app)->output_buffer = malloc(MAX_RESPONSE_BUFFER_LENGTH);
     (*_app)->api_response = malloc(MAX_RESPONSE_BUFFER_LENGTH);
 
-    if ((*_app)->api_response == NULL || (*_app)->output_buffer == NULL) {
+    if ((*_app)->api_response == NULL) {
         fprintf(stderr, "Error: app_init. _app members malloc failed.\n");
         return -1;
     }
 
-    memset((*_app)->output_buffer, 0, MAX_RESPONSE_BUFFER_LENGTH);
     memset((*_app)->api_response, 0, MAX_RESPONSE_BUFFER_LENGTH);
 
     (*_app)->root = NULL;
@@ -181,7 +186,6 @@ int app_destroy(weather_app **_app) {
     }
 
     /* todo decref all jansson here? */
-    free((*_app)->output_buffer);
     free((*_app)->api_response);
     free(*_app);
     *_app = NULL;
@@ -205,13 +209,6 @@ int app_get_exit(weather_app *_app) {
 }
 
 LinkedList *app_get_locations(weather_app *_app) { return _app->locations; };
-
-/* returns a copy placed in output_buffer  */
-char *app_get_prev_api_response_raw(weather_app *_app) {
-    app_reset_output_buffer(_app);
-    strcpy(_app->output_buffer, _app->api_response);
-    return _app->output_buffer;
-}
 
 double app_get_temp(weather_app *_app) {
     if (_app == NULL) return 0.0;
@@ -294,7 +291,7 @@ void app_set_current_location_weather(weather_app *_app, char *_api_response) {
         if (longitude != NULL && json_is_number(longitude)) _app->current_location->longitude = json_number_value(longitude);
         if (utc_offset_seconds != NULL && json_is_integer(utc_offset_seconds)) _app->current_location->current_weather.utc_offset_seconds = (int)json_integer_value(utc_offset_seconds);
         if (timezone != NULL && json_is_string(timezone)) strlcpy(_app->current_location->current_weather.timezone, json_string_value(timezone), sizeof(_app->current_location->current_weather.timezone));
-        if (elevation != NULL && json_is_integer(elevation)) _app->current_location->current_weather.elevation = (int)json_integer_value(elevation);
+        if (elevation != NULL && json_is_number(elevation)) _app->current_location->current_weather.elevation = json_number_value(elevation);
         if (time != NULL && json_is_string(time)) strlcpy(_app->current_location->current_weather.time, json_string_value(time), sizeof(_app->current_location->current_weather.time));
         if (interval != NULL && json_is_integer(interval)) _app->current_location->current_weather.interval = (int)json_integer_value(interval);
         if (temperature_2m != NULL && json_is_number(temperature_2m)) _app->current_location->current_weather.temperature_2m = json_number_value(temperature_2m);
@@ -322,71 +319,9 @@ int app_set_exit(weather_app *_app) {
     _app->exit = 1;
     return 0;
 }
-int app_set_prev_api_response(weather_app *_app, char *_response) {
-    if (_app->api_response == NULL || _response == NULL) {
-        return -1;
-    }
-    /* todo should we check if stncopy worked? */
-    strlcpy(_app->api_response, _response, MAX_RESPONSE_BUFFER_LENGTH);
-
-    _app->api_response[MAX_RESPONSE_BUFFER_LENGTH - 1] = '\0';
-
-    /* parse response with jansson and fill location and weather_data */
-    _app->root = json_loads(_response, 0, &_app->error);
-    if (!_app->root) {
-        return -1;
-    }
-
-    json_t *current = json_object_get(_app->root, "current");
-    if (!current) {
-        return -1;
-    }
-
-    json_t *val;
-    val = json_object_get(current, "time");
-    if (json_is_string(val)) {
-        strlcpy(_app->current_location->current_weather.time, json_string_value(val), 32);
-        _app->current_location->current_weather.time[31] = '\0';
-    }
-
-    val = json_object_get(current, "interval");
-    _app->current_location->current_weather.interval = json_is_integer(val) ? json_integer_value(val) : 0;
-    val = json_object_get(current, "temperature_2m");
-    _app->current_location->current_weather.temperature_2m = json_is_number(val) ? json_number_value(val) : 0.0;
-    val = json_object_get(current, "relative_humidity_2m");
-    _app->current_location->current_weather.relative_humidity_2m = json_is_integer(val) ? json_integer_value(val) : 0;
-    val = json_object_get(current, "apparent_temperature");
-    _app->current_location->current_weather.apparent_temperature = json_is_number(val) ? json_number_value(val) : 0.0;
-    val = json_object_get(current, "precipitation");
-    _app->current_location->current_weather.precipitation = json_is_number(val) ? json_number_value(val) : 0.0;
-    val = json_object_get(current, "rain");
-    _app->current_location->current_weather.rain = json_is_number(val) ? json_number_value(val) : 0.0;
-    val = json_object_get(current, "showers");
-    _app->current_location->current_weather.showers = json_is_number(val) ? json_number_value(val) : 0.0;
-    val = json_object_get(current, "snowfall");
-    _app->current_location->current_weather.snowfall = json_is_number(val) ? json_number_value(val) : 0.0;
-    val = json_object_get(current, "weather_code");
-    _app->current_location->current_weather.weather_code = json_is_integer(val) ? json_integer_value(val) : 0;
-    val = json_object_get(current, "cloud_cover");
-    _app->current_location->current_weather.cloud_cover = json_is_integer(val) ? json_integer_value(val) : 0;
-    val = json_object_get(current, "pressure_msl");
-    _app->current_location->current_weather.pressure_msl = json_is_number(val) ? json_number_value(val) : 0.0;
-    val = json_object_get(current, "surface_pressure");
-    _app->current_location->current_weather.surface_pressure = json_is_number(val) ? json_number_value(val) : 0.0;
-    val = json_object_get(current, "wind_speed_10m");
-    _app->current_location->current_weather.wind_speed_10m = json_is_number(val) ? json_number_value(val) : 0.0;
-    val = json_object_get(current, "wind_direction_10m");
-    _app->current_location->current_weather.wind_direction_10m = json_is_integer(val) ? json_integer_value(val) : 0;
-    val = json_object_get(current, "wind_gusts_10m");
-    _app->current_location->current_weather.wind_gusts_10m = json_is_number(val) ? json_number_value(val) : 0.0;
-
-    json_decref(_app->root);
-    _app->root = NULL;
-
-    return 0;
-}
 
 /* UI */
+
 void app_print_startup_message() {
     printf("\n");
     printf("    ╔═════════════════════════╗\n");
@@ -401,6 +336,29 @@ void app_print_menu(weather_app *_app) {
     printf("  0: EXIT\n");
     return;
 }
+
+void app_print_current_location_weather_all(weather_app *_app) {
+    location *current_location = _app->current_location;
+    weather_data w = current_location->current_weather;
+
+    printf("\n---------------------------------------------\n");
+    printf("📍 Location: %s\n", current_location->name);
+    printf("   Latitude: %.4f   Longitude: %.4f\n", current_location->latitude, current_location->longitude);
+    printf("   Time: %s (UTC offset %d sec)\n", w.time, w.utc_offset_seconds);
+    printf("   Elevation: %.0f m   update interval: %d minutes\n", (double)w.elevation, w.interval / 60);
+
+    printf("   Weather Code: %d\n", w.weather_code);
+    printf("   Temperature: %.1f °C (feels like %.1f °C)\n", w.temperature_2m, w.apparent_temperature);
+    printf("   Humidity: %.0f %%   Cloud Cover: %.0f %%\n", w.relative_humidity_2m, w.cloud_cover);
+    printf("   Wind: %.1f m/s from %.0f° (gusts up to %.1f m/s)\n", w.wind_speed_10m, w.wind_direction_10m, w.wind_gusts_10m);
+
+    printf("   Precipitation: %.1f mm (Rain: %.1f, Showers: %.1f, Snowfall: %.1f)\n", w.precipitation, w.rain, w.showers, w.snowfall);
+
+    printf("   Pressure: %.1f hPa (MSL: %.1f)\n", w.surface_pressure, w.pressure_msl);
+
+    printf("---------------------------------------------\n\n");
+}
+
 int app_get_selection(int max) {
     int min = 0;
     size_t length = 0;
@@ -429,80 +387,62 @@ int app_get_selection(int max) {
 }
 
 /* Files */
-void app_save_api_response(weather_app *_app) {
-    json_error_t error;
-    json_t *locations_file = NULL;
-    json_t *locations_array = NULL;
-    json_t *weather_data = NULL;
-    json_t *found_location = NULL;
-    size_t index;
+int app_write_locations_to_file(weather_app *_app) {
+    /* todo needs error handling */
+    LinkedList *list = _app->locations;
+    location *current_location = NULL;
+    weather_data current_weather;
 
-    locations_file = json_load_file(LOCATIONS_FILE_PATH, 0, &error);
-    if (!locations_file) {
-        fprintf(stderr, "Error: Failed to load JSON file '%s' (line %d, %s).\n", LOCATIONS_FILE_PATH, error.line, error.text);
-        return;
+    FILE *file = fopen("./data/locations.json", "w");
+
+    json_t *root = json_object();
+    json_t *locations_obj = json_array();
+
+    for (size_t i = 0; i < _app->locations->size; i++) {
+        current_location = (location *)LinkedList_get_index(list, i)->item;
+        current_weather = current_location->current_weather;
+
+        /* write weather_data object */
+        json_t *current_weather_obj = json_object();
+        json_object_set_new(current_weather_obj, "utc_offset_seconds", json_integer(current_weather.utc_offset_seconds));
+        json_object_set_new(current_weather_obj, "timezone", json_string(current_weather.timezone));
+        json_object_set_new(current_weather_obj, "elevation", json_integer(current_weather.elevation));
+        json_object_set_new(current_weather_obj, "time", json_string(current_weather.time));
+        json_object_set_new(current_weather_obj, "interval", json_integer(current_weather.interval));
+        json_object_set_new(current_weather_obj, "weather_code", json_integer(current_weather.weather_code));
+        json_object_set_new(current_weather_obj, "temperature_2m", json_real(current_weather.temperature_2m));
+        json_object_set_new(current_weather_obj, "relative_humidity_2m", json_real(current_weather.relative_humidity_2m));
+        json_object_set_new(current_weather_obj, "cloud_cover", json_real(current_weather.cloud_cover));
+        json_object_set_new(current_weather_obj, "wind_direction_10m", json_real(current_weather.wind_direction_10m));
+        json_object_set_new(current_weather_obj, "apparent_temperature", json_real(current_weather.apparent_temperature));
+        json_object_set_new(current_weather_obj, "precipitation", json_real(current_weather.precipitation));
+        json_object_set_new(current_weather_obj, "rain", json_real(current_weather.rain));
+        json_object_set_new(current_weather_obj, "showers", json_real(current_weather.showers));
+        json_object_set_new(current_weather_obj, "snowfall", json_real(current_weather.snowfall));
+        json_object_set_new(current_weather_obj, "pressure_msl", json_real(current_weather.pressure_msl));
+        json_object_set_new(current_weather_obj, "surface_pressure", json_real(current_weather.surface_pressure));
+        json_object_set_new(current_weather_obj, "wind_speed_10m", json_real(current_weather.wind_speed_10m));
+        json_object_set_new(current_weather_obj, "wind_gusts_10m", json_real(current_weather.wind_gusts_10m));
+
+        /* write location object */
+        json_t *location = json_object();
+        json_object_set_new(location, "name", json_string(current_location->name));
+        json_object_set_new(location, "latitude", json_real(current_location->latitude));
+        json_object_set_new(location, "longitude", json_real(current_location->longitude));
+        json_object_set_new(location, "timestamp_api_call", json_integer(current_location->timestamp_api_call));
+
+        /* add weather_data to location */
+        json_object_set_new(location, "current_weather", current_weather_obj);
+        /* add location object to locations array */
+        json_array_append_new(locations_obj, location);
     }
+    /* add locations array to root */
+    json_object_set_new(root, "locations", locations_obj);
 
-    if (!json_is_object(locations_file)) {
-        fprintf(stderr, "Error: Root of JSON file is not an object.\n");
-        goto cleanup;
-    }
+    /* save file with 4 decimal places for floats */
+    json_dumpf(root, file, JSON_INDENT(2) | JSON_REAL_PRECISION(6));
 
-    locations_array = json_object_get(locations_file, "locations");
-    if (!locations_array || !json_is_array(locations_array)) {
-        fprintf(stderr, "Error: Could not find '%s' array in file.\n", "locations");
-        goto cleanup;
-    }
-
-    weather_data = json_object();
-    if (!weather_data) goto cleanup;
-
-    json_object_set_new(weather_data, "utc_offset_seconds", json_integer(_app->current_location->current_weather.utc_offset_seconds));
-    json_object_set_new(weather_data, "elevation", json_integer(_app->current_location->current_weather.elevation));
-    json_object_set_new(weather_data, "interval", json_integer(_app->current_location->current_weather.interval));
-    json_object_set_new(weather_data, "weather_code", json_integer(_app->current_location->current_weather.weather_code));
-    json_object_set_new(weather_data, "timezone", json_string(_app->current_location->current_weather.timezone));
-    json_object_set_new(weather_data, "time", json_string(_app->current_location->current_weather.time));
-    json_object_set_new(weather_data, "temperature_2m", json_real(_app->current_location->current_weather.temperature_2m));
-    json_object_set_new(weather_data, "relative_humidity_2m", json_real(_app->current_location->current_weather.relative_humidity_2m));
-    json_object_set_new(weather_data, "cloud_cover", json_real(_app->current_location->current_weather.cloud_cover));
-    json_object_set_new(weather_data, "wind_direction_10m", json_real(_app->current_location->current_weather.wind_direction_10m));
-    json_object_set_new(weather_data, "apparent_temperature", json_real(_app->current_location->current_weather.apparent_temperature));
-    json_object_set_new(weather_data, "precipitation", json_real(_app->current_location->current_weather.precipitation));
-    json_object_set_new(weather_data, "rain", json_real(_app->current_location->current_weather.rain));
-    json_object_set_new(weather_data, "showers", json_real(_app->current_location->current_weather.showers));
-    json_object_set_new(weather_data, "snowfall", json_real(_app->current_location->current_weather.snowfall));
-    json_object_set_new(weather_data, "pressure_msl", json_real(_app->current_location->current_weather.pressure_msl));
-    json_object_set_new(weather_data, "surface_pressure", json_real(_app->current_location->current_weather.surface_pressure));
-    json_object_set_new(weather_data, "wind_speed_10m", json_real(_app->current_location->current_weather.wind_speed_10m));
-    json_object_set_new(weather_data, "wind_gusts_10m", json_real(_app->current_location->current_weather.wind_gusts_10m));
-
-    json_array_foreach(locations_array, index, found_location) {
-        json_t *name_obj = json_object_get(found_location, "name");
-        if (name_obj && json_is_string(name_obj)) {
-            const char *json_name = json_string_value(name_obj);
-            if (strcmp(json_name, _app->current_location->name) == 0) {
-                json_object_set_new(found_location, "previous_api_call", json_integer(time(NULL)));
-                json_object_set_new(found_location, "weather_data", weather_data);
-                weather_data = NULL;
-                break;
-            }
-        }
-    }
-
-    if (weather_data != NULL) {
-        fprintf(stderr, "Warning: Location '%s' not found in file. Not saving data.\n", _app->current_location->name);
-        goto cleanup;
-    }
-
-    int result = json_dump_file(locations_file, LOCATIONS_FILE_PATH, JSON_INDENT(2));
-
-    if (result != 0) {
-        fprintf(stderr, "Failed to write JSON file: json_dump_file returned %d\n", result);
-    }
-
-cleanup:
-    if (locations_file) json_decref(locations_file);
-    if (weather_data) json_decref(weather_data);
-    return;
+    fclose(file); /* this is where the file gets written. buffer->disk */
+    json_decref(root);
+    return 0;
 }
