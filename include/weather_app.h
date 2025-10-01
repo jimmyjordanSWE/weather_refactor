@@ -5,8 +5,6 @@
 typedef struct location location;
 typedef struct weather_app weather_app;
 
-void app_print_menu(weather_app *_app);
-
 /* init / destroy */
 int app_init(weather_app **_app);
 int app_destroy(weather_app **_app);
@@ -37,6 +35,7 @@ const char *app_get_time(weather_app *_app);
 const char *app_get_name(weather_app *_app);
 
 /* setters */
+
 void app_set_current_location_weather(weather_app *_app, char *api_response);
 int app_set_exit(weather_app *_app);
 int app_set_prev_api_response(weather_app *_app, char *_response);
@@ -44,6 +43,8 @@ int app_set_current_location(weather_app **_app, location *_new_location);
 void app_set_current_location_index(weather_app *_app, size_t _selection);
 
 /* UI */
+
+void app_print_menu(weather_app *_app);
 void app_clear_screen();
 void app_print_startup_message();
 void app_print_menu(weather_app *_app);
@@ -52,6 +53,7 @@ void app_print_current_location_weather_all(weather_app *_app);
 int app_get_selection(int max);
 
 /* Files */
+
 int app_write_locations_to_file(weather_app *_app);
 
 #endif /* WEATHER_APP_H */

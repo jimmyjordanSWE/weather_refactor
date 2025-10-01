@@ -4,13 +4,6 @@
 #include "weather_app.h"
 #include "wrap_curl.h"
 
-/* TODO UNTIL FINISHED:
-
-- make it so that we can add new cities
-
-- bonus: perhaps integrate w_curl into weather_app?
-*/
-
 int main() {
     app_clear_screen();
     app_print_startup_message();
@@ -26,7 +19,7 @@ int main() {
         return -1;
     }
 
-    size_t selection = 0; /* todo move this variable somewhere else? */
+    size_t selection = 0; /* todo integrate this variable somewhere */
     /* Main program loop */
     do {
         app_print_menu(app);
@@ -39,7 +32,6 @@ int main() {
         }
 
         app_set_current_location_index(app, selection);
-        /*         w_curl_set_url(w_curl, meteo_url); */
         w_curl_perform(app, w_curl);
 
         app_print_current_location_weather_all(app);

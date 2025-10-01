@@ -16,15 +16,12 @@ struct wrap_curl {
     time_t call_cooldown;
     char *response_storage;
     char *url;
-
-    /* todo list of prev URLs */
 };
 /* reset all for handle reuse */
 int w_curl_reset_handle(wrap_curl *_w_curl) {
     _w_curl->call_cooldown = 0;
     _w_curl->error = CURLE_OK;
     memset(_w_curl->response_storage, 0, MAX_RESPONSE_BUFFER_LENGTH);
-    /* todo check if this segfaults at second run (first is during init)*/
     memset(_w_curl->url, 0, MAX_URL_LENGTH);
     return 0;
 }
@@ -78,9 +75,9 @@ int w_curl_perform(weather_app *_app, wrap_curl *_w_curl) {
         return 1;
     }
 
-    /* write api response to location */
+    /* write api response to current location */
     app_set_current_location_weather(_app, _w_curl->response_storage);
-    /* write all locations to file */
+    /* update locations cache file */
     app_write_locations_to_file(_app);
 
     return 0;
@@ -96,6 +93,7 @@ int w_curl_init(wrap_curl **_w_curl) {
         fprintf(stderr, "Error: malloc failed in w_curl_init");
         return -1;
     }
+
     *_w_curl = malloc(sizeof(wrap_curl));
 
     if (curl_global_init_has_been_run == 0) {
@@ -108,12 +106,11 @@ int w_curl_init(wrap_curl **_w_curl) {
 
     /* todo check for malloc error */
     (*_w_curl)->response_storage = malloc(MAX_RESPONSE_BUFFER_LENGTH);
-
     /* todo check for malloc error */
     (*_w_curl)->url = malloc(MAX_URL_LENGTH);
-
+    /* todo check for error return */
     (*_w_curl)->handle = curl_easy_init();
-    /* check for error return */
+    /* todo check for error return */
     w_curl_reset_handle(*_w_curl);
 
     curl_easy_setopt((*_w_curl)->handle, CURLOPT_WRITEFUNCTION, write_callback);
