@@ -6,8 +6,6 @@
 
 /* TODO UNTIL FINISHED:
 
-- when building locations list from bootstrap, also write to file (locations.json) DONE BUT OVERWRITES IF FILE EXISTS.
-
 - make it so that we can add new cities
 
 - write a URL builder and remove hardcoded URL string from main
