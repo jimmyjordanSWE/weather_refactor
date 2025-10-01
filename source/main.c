@@ -5,6 +5,9 @@
 #include "wrap_curl.h"
 
 /* TODO UNTIL FINISHED:
+
+- when building locations list from bootstrap, also write to file (locations.json)
+
 - Write API responses to file
 
 - add tinyDir / make folder if cache file and folder is missing

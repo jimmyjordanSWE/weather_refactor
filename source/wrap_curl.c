@@ -82,7 +82,7 @@ int w_curl_perform(weather_app *_app, wrap_curl *_w_curl) {
     }
 
     /* write response to file */
-    app_cache_api_response(_app);
+    app_save_api_response(_app);
 
     return 0;
 }

@@ -27,7 +27,7 @@ double app_get_apparent_temp(weather_app *_app);
 double app_get_wind_speed(weather_app *_app);
 double app_get_pressure(weather_app *_app);
 const char *app_get_time(weather_app *_app);
-const char *app_get_city_name(weather_app *_app);
+const char *app_get_name(weather_app *_app);
 
 /* setters */
 void app_set_current_location_weather(weather_app *_app, char *api_response);
@@ -41,6 +41,6 @@ void app_print_menu(weather_app *_app);
 int app_get_selection(int max);
 
 /* Files */
-void app_cache_api_response(weather_app *_app);
+void app_save_api_response(weather_app *_app);
 
 #endif /* WEATHER_APP_H */
