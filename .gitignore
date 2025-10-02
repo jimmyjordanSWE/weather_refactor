@@ -1,14 +1,20 @@
 # Compiled binaries and object files
 build/
-
-# IDE files
-.vscode/
-
-# Package files
 *.o
 *.d
 *.exe
 *.out
 
+# IDE files
+.vscode/
+
 # Specific files to ignore
 notes.md
+
+# Ignore all dot-files (e.g., .DS_Store, .project, etc.)
+# but specifically UN-ignore the .gitignore file.
+.*
+!/.gitignore
+
+# Ignore the 'data' folder and everything inside it
+/data/
