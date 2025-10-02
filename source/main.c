@@ -20,12 +20,11 @@ int main() {
     }
 
     size_t selection = 0; /* todo integrate this variable somewhere */
+    app_print_menu(app);
+
     /* Main program loop */
     do {
-        app_print_menu(app);
-
         selection = app_get_selection(app_get_nr_locations(app));
-        app_clear_screen();
         if (selection == 0) {
             app_set_exit(app);
             break;

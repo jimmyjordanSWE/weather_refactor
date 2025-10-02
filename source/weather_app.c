@@ -17,7 +17,7 @@ typedef struct {
     char timezone[16];
     char time[32];
     int utc_offset_seconds;
-    int interval;
+    size_t interval;
     int weather_code;
     double elevation;
     double temperature_2m;
@@ -74,12 +74,14 @@ int app_load_locations(weather_app **_app) {
     size_t index;
     json_t *val = NULL;
     json_t *loc = NULL;
+    json_t *curr_wea = NULL;
     json_t *name = NULL;
     json_t *latitude = NULL;
     json_t *longitude = NULL;
+    json_t *timestamp_last_api_call = NULL;
     json_t *root = NULL;
     json_error_t error;
-    int error_parsing_file_data = 0;
+    int error_parsing_file_data = 0; /* todo AI says that goto: error is a common pattern instead of this int */
 
     root = json_load_file(LOCATIONS_FILE_PATH, 0, &error);
 
@@ -92,20 +94,60 @@ int app_load_locations(weather_app **_app) {
                 name = json_object_get(loc, "name");
                 latitude = json_object_get(loc, "latitude");
                 longitude = json_object_get(loc, "longitude");
+                timestamp_last_api_call = json_object_get(loc, "timestamp_last_api_call");
+
+                curr_wea = json_object_get(loc, "current_weather");
 
                 if (json_is_string(name) && json_is_number(latitude) && json_is_number(longitude)) {
                     location *tmp = (location *)calloc(1, sizeof(location));
 
+                    if (tmp == NULL) {
+                        fprintf(stderr, "Memory allocation failed at index %zu\n", index);
+                        error_parsing_file_data = 1;
+                        json_decref(root);
+                        root = NULL;
+                        LinkedList_free_nodes_and_payloads((*_app)->locations);
+                        break;
+                    }
+
                     strlcpy(tmp->name, json_string_value(name), MAX_CITY_NAME);
                     tmp->latitude = json_number_value(latitude);
                     tmp->longitude = json_number_value(longitude);
+                    tmp->timestamp_last_api_call = json_number_value(timestamp_last_api_call);
+
+                    // Load all current_weather fields
+                    if (json_is_object(curr_wea)) {
+                        tmp->current_weather.utc_offset_seconds = json_number_value(json_object_get(curr_wea, "utc_offset_seconds"));
+                        tmp->current_weather.elevation = json_number_value(json_object_get(curr_wea, "elevation"));
+                        tmp->current_weather.interval = json_number_value(json_object_get(curr_wea, "interval"));
+                        tmp->current_weather.weather_code = json_number_value(json_object_get(curr_wea, "weather_code"));
+                        tmp->current_weather.temperature_2m = json_number_value(json_object_get(curr_wea, "temperature_2m"));
+                        tmp->current_weather.relative_humidity_2m = json_number_value(json_object_get(curr_wea, "relative_humidity_2m"));
+                        tmp->current_weather.cloud_cover = json_number_value(json_object_get(curr_wea, "cloud_cover"));
+                        tmp->current_weather.wind_direction_10m = json_number_value(json_object_get(curr_wea, "wind_direction_10m"));
+                        tmp->current_weather.apparent_temperature = json_number_value(json_object_get(curr_wea, "apparent_temperature"));
+                        tmp->current_weather.precipitation = json_number_value(json_object_get(curr_wea, "precipitation"));
+                        tmp->current_weather.rain = json_number_value(json_object_get(curr_wea, "rain"));
+                        tmp->current_weather.showers = json_number_value(json_object_get(curr_wea, "showers"));
+                        tmp->current_weather.snowfall = json_number_value(json_object_get(curr_wea, "snowfall"));
+                        tmp->current_weather.pressure_msl = json_number_value(json_object_get(curr_wea, "pressure_msl"));
+                        tmp->current_weather.surface_pressure = json_number_value(json_object_get(curr_wea, "surface_pressure"));
+                        tmp->current_weather.wind_speed_10m = json_number_value(json_object_get(curr_wea, "wind_speed_10m"));
+                        tmp->current_weather.wind_gusts_10m = json_number_value(json_object_get(curr_wea, "wind_gusts_10m"));
+                        json_t *timezone = json_object_get(curr_wea, "timezone");
+                        json_t *time = json_object_get(curr_wea, "time");
+                        if (json_is_string(timezone)) {
+                            strlcpy(tmp->current_weather.timezone, json_string_value(timezone), sizeof(tmp->current_weather.timezone));
+                        }
+                        if (json_is_string(time)) {
+                            strlcpy(tmp->current_weather.time, json_string_value(time), sizeof(tmp->current_weather.time));
+                        }
+                    }
 
                     LinkedList_append((*_app)->locations, (void *)tmp);
-
                 } else {
                     fprintf(stderr, "Invalid data at index %zu. Loading hard coded locations instead.\n", index);
                     error_parsing_file_data = 1;
-                    /* clean up and stop parsing on any error */
                     json_decref(root);
                     root = NULL;
                     LinkedList_free_nodes_and_payloads((*_app)->locations);
@@ -129,12 +171,14 @@ int app_load_locations(weather_app **_app) {
                 name = json_object_get(loc, "name");
                 latitude = json_object_get(loc, "latitude");
                 longitude = json_object_get(loc, "longitude");
+                timestamp_last_api_call = json_object_get(loc, "timestamp_last_api_call");
 
                 location *tmp = (location *)calloc(1, sizeof(location));
 
                 strlcpy(tmp->name, json_string_value(name), MAX_CITY_NAME);
                 tmp->latitude = json_number_value(latitude);
                 tmp->longitude = json_number_value(longitude);
+                tmp->timestamp_last_api_call = json_number_value(timestamp_last_api_call);
 
                 LinkedList_append((*_app)->locations, (void *)tmp);
             }
@@ -197,13 +241,21 @@ int app_destroy(weather_app **_app) {
  * ======================================== */
 
 size_t app_is_cache_stale(weather_app *_app) {
-    time_t now = time(NULL);
     size_t prev_call = (size_t)_app->current_location->timestamp_last_api_call;
+    if (prev_call <= 0) return 0; /* prev_call is 0 before first call. check 0 so we can divide below  */
+    size_t now = (size_t)time(NULL);
     size_t interval = (size_t)_app->current_location->current_weather.interval;
 
-    if ((size_t)(now - prev_call) >= interval) return 0;
+    size_t quarters_from_now = now / interval;             /* nr of intervals from now to 1970 */
+    size_t quarters_from_prev_call = prev_call / interval; /* nr of intervals from prev_call to 1970 */
 
-    return interval - (size_t)(now - prev_call);
+    /* if we are in a different interval, check api */
+    if (quarters_from_now > quarters_from_prev_call) return 0;
+
+    /* Calculate when next interval starts */
+    size_t next_interval_start = (quarters_from_now + 1) * interval;
+
+    return next_interval_start - now;  // Return seconds until next api refresh
 }
 
 double app_get_current_location_latitude(weather_app *_app) { return _app->current_location->latitude; }
@@ -307,7 +359,7 @@ void app_set_current_location_weather(weather_app *_app, char *_api_response) {
         if (timezone != NULL && json_is_string(timezone)) strlcpy(_app->current_location->current_weather.timezone, json_string_value(timezone), sizeof(_app->current_location->current_weather.timezone));
         if (elevation != NULL && json_is_number(elevation)) _app->current_location->current_weather.elevation = json_number_value(elevation);
         if (time != NULL && json_is_string(time)) strlcpy(_app->current_location->current_weather.time, json_string_value(time), sizeof(_app->current_location->current_weather.time));
-        if (interval != NULL && json_is_integer(interval)) _app->current_location->current_weather.interval = (int)json_integer_value(interval);
+        if (interval != NULL && json_is_integer(interval)) _app->current_location->current_weather.interval = json_integer_value(interval);
         if (temperature_2m != NULL && json_is_number(temperature_2m)) _app->current_location->current_weather.temperature_2m = json_number_value(temperature_2m);
         if (relative_humidity_2m != NULL && json_is_number(relative_humidity_2m)) _app->current_location->current_weather.relative_humidity_2m = json_number_value(relative_humidity_2m);
         if (apparent_temperature != NULL && json_is_number(apparent_temperature)) _app->current_location->current_weather.apparent_temperature = json_number_value(apparent_temperature);
@@ -364,7 +416,7 @@ void app_print_current_location_weather_all(weather_app *_app) {
     printf("📍 Location: %s\n", current_location->name);
     printf("   Latitude: %.4f   Longitude: %.4f\n", current_location->latitude, current_location->longitude);
     printf("   Time: %s (UTC offset %d sec)\n", w.time, w.utc_offset_seconds);
-    printf("   Elevation: %.0f m   update interval: %d minutes\n", (double)w.elevation, w.interval / 60);
+    printf("   Elevation: %.0f m   update interval: %zu minutes\n", (double)w.elevation, w.interval / 60);
 
     printf("   Weather Code: %d\n", w.weather_code);
     printf("   Temperature: %.1f °C (feels like %.1f °C)\n", w.temperature_2m, w.apparent_temperature);
