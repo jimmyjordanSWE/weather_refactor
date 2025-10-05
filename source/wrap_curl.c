@@ -58,7 +58,7 @@ int w_curl_perform(weather_app *_app, wrap_curl *_w_curl) {
     /* dont call if there is no new data released */
     size_t seconds_left = app_is_cache_stale(_app);
     if (seconds_left != 0) {
-        printf("No API call sent, %02zum%02zus left until new data is released", seconds_left / 60, seconds_left % 60);
+        printf("No API call sent, %02zum %02zus left until new data is released", seconds_left / 60, seconds_left % 60);
         return 0;
     }
 

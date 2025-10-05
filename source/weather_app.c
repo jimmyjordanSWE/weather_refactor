@@ -242,7 +242,7 @@ int app_destroy(weather_app **_app) {
 
 size_t app_is_cache_stale(weather_app *_app) {
     size_t prev_call = (size_t)_app->current_location->timestamp_last_api_call;
-    if (prev_call <= 0) return 0; /* prev_call is 0 before first call. check 0 so we can divide below  */
+    if (prev_call <= 0) return 0; /* prev_call is 0 before first call. check for 0 so we can divide below  */
     size_t now = (size_t)time(NULL);
     size_t interval = (size_t)_app->current_location->current_weather.interval;
 
